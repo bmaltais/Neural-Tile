@@ -35,30 +35,34 @@ main(){
 	# 3. Chop the styled image into 3x3 tiles with the specified overlap value.
 	out_dir=$output/$clean_name
 	mkdir -p $out_dir
-	convert $out_file -crop 3x3+"$overlap_w"+"$overlap_h"@ +repage +adjoin $out_dir/$clean_name"_%d.png"
+	convert $out_file -crop 4x4+"$overlap_w"+"$overlap_h"@ +repage +adjoin $out_dir/$clean_name"_%d.png"
 	
 	#Finds out the length and width of the first tile as a refrence point for resizing the other tiles.
 	original_tile_w=`convert $out_dir/$clean_name'_0.png' -format "%w" info:`
 	original_tile_h=`convert $out_dir/$clean_name'_0.png' -format "%h" info:`
 	
-	 #Resize all tiles to avoid ImageMagick weirdness
-	 convert $out_dir/$clean_name'_0.png' -resize "$original_tile_w"x"$original_tile_h"\! $out_dir/$clean_name'_0.png' 
-	 convert $out_dir/$clean_name'_1.png' -resize "$original_tile_w"x"$original_tile_h"\! $out_dir/$clean_name'_1.png'
-	 convert $out_dir/$clean_name'_2.png' -resize "$original_tile_w"x"$original_tile_h"\! $out_dir/$clean_name'_2.png'
-	 convert $out_dir/$clean_name'_3.png' -resize "$original_tile_w"x"$original_tile_h"\! $out_dir/$clean_name'_3.png'
-	 convert $out_dir/$clean_name'_4.png' -resize "$original_tile_w"x"$original_tile_h"\! $out_dir/$clean_name'_4.png'
-	 convert $out_dir/$clean_name'_5.png' -resize "$original_tile_w"x"$original_tile_h"\! $out_dir/$clean_name'_5.png'
-	 convert $out_dir/$clean_name'_6.png' -resize "$original_tile_w"x"$original_tile_h"\! $out_dir/$clean_name'_6.png'
-	 convert $out_dir/$clean_name'_7.png' -resize "$original_tile_w"x"$original_tile_h"\! $out_dir/$clean_name'_7.png'
-	 convert $out_dir/$clean_name'_8.png' -resize "$original_tile_w"x"$original_tile_h"\! $out_dir/$clean_name'_8.png'	 					
-					#WxH				
+	#Resize all tiles to avoid ImageMagick weirdness
+	mogrify -path $output/$clean_name/ -resize "$original_tile_w"x"$original_tile_h"\! $output/$clean_name/*.png 					
+
+	#Create original content tyles
+	out_dir_oc=$output/origcontent/tiles
+	mkdir -p $out_dir_oc
+	convert $input_file -crop 4x4+"$overlap_w"+"$overlap_h"@ +repage +adjoin $out_dir_oc/$clean_name"_%d.png"
+
+	#Finds out the length and width of the first original content tile as a refrence point for resizing the other tiles.
+	original_content_tile_w=`convert $out_dir_oc/$clean_name'_0.png' -format "%w" info:`
+	original_content_tile_h=`convert $out_dir_oc/$clean_name'_0.png' -format "%h" info:`
+	
+	#Resize all tiles to avoid ImageMagick weirdness
+	mogrify -path $output/origcontent/tiles/ -resize "$original_content_tile_w"x"$original_content_tile_h"\! $output/origcontent/$clean_name/*.png 
 
 	# 4. neural-style each tile
 	tiles_dir="$out_dir/tiles"
+	content_tiles_dir="$out_dir_oc"
 	mkdir -p $tiles_dir
-	for tile in `ls $out_dir | grep $clean_name"_"[0-9]".png"`
+	for tile in "${clean_name}_"{0..15}.png
 	do
-		neural_style_tiled $out_dir/$tile $style $tiles_dir/$tile
+		neural_style_tiled $out_dir/$tile $style $tiles_dir/$tile $content_tiles_dir/$tile
 	done
 	
 	#Perform the required mathematical operations:	
@@ -75,22 +79,26 @@ main(){
 	# 5. feather tiles
 	feathered_dir=$out_dir/feathered
 	mkdir -p $feathered_dir
-	for tile in `ls $tiles_dir | grep $clean_name"_"[0-9]".png"`
+	for tile in "${clean_name}_"{0..15}.png
 	do
 		tile_name="${tile%.*}"
 		convert $tiles_dir/$tile -alpha set -virtual-pixel transparent -channel A -morphology Distance Euclidean:1,50\! +channel "$feathered_dir/$tile_name.png"
 	done
 	
 	# 7. Smush the feathered tiles together
-	convert -background transparent \( $feathered_dir/$clean_name'_0.png' $feathered_dir/$clean_name'_1.png' $feathered_dir/$clean_name'_2.png' +smush -$smush_value_w -background transparent \) \
-		\( $feathered_dir/$clean_name'_3.png' $feathered_dir/$clean_name'_4.png' $feathered_dir/$clean_name'_5.png' +smush -$smush_value_w -background transparent \) \
-		\( $feathered_dir/$clean_name'_6.png' $feathered_dir/$clean_name'_7.png' $feathered_dir/$clean_name'_8.png' +smush -$smush_value_w -background transparent \) \
+	convert -background transparent \
+	    \( $feathered_dir/$clean_name'_0.png' $feathered_dir/$clean_name'_1.png' $feathered_dir/$clean_name'_2.png' $feathered_dir/$clean_name'_3.png' +smush -$smush_value_w -background transparent \) \
+	    \( $feathered_dir/$clean_name'_4.png' $feathered_dir/$clean_name'_5.png' $feathered_dir/$clean_name'_6.png' $feathered_dir/$clean_name'_7.png' +smush -$smush_value_w -background transparent \) \
+	    \( $feathered_dir/$clean_name'_8.png' $feathered_dir/$clean_name'_9.png' $feathered_dir/$clean_name'_10.png' $feathered_dir/$clean_name'_11.png' +smush -$smush_value_w -background transparent \) \
+	    \( $feathered_dir/$clean_name'_12.png' $feathered_dir/$clean_name'_13.png' $feathered_dir/$clean_name'_14.png' $feathered_dir/$clean_name'_15.png' +smush -$smush_value_w -background transparent \) \
 		-background none  -background transparent -smush -$smush_value_h  $output/$clean_name.large_feathered.png
 
 	# 8. Smush the non-feathered tiles together
-	convert \( $tiles_dir/$clean_name'_0.png' $tiles_dir/$clean_name'_1.png' $tiles_dir/$clean_name'_2.png' +smush -$smush_value_w \) \
-		\( $tiles_dir/$clean_name'_3.png' $tiles_dir/$clean_name'_4.png' $tiles_dir/$clean_name'_5.png' +smush -$smush_value_w \) \
-		\( $tiles_dir/$clean_name'_6.png' $tiles_dir/$clean_name'_7.png' $tiles_dir/$clean_name'_8.png' +smush -$smush_value_w \) \
+	convert \
+	    \( $tiles_dir/$clean_name'_0.png' $tiles_dir/$clean_name'_1.png' $tiles_dir/$clean_name'_2.png' $tiles_dir/$clean_name'_3.png' +smush -$smush_value_w \) \
+	    \( $tiles_dir/$clean_name'_4.png' $tiles_dir/$clean_name'_5.png' $tiles_dir/$clean_name'_6.png' $tiles_dir/$clean_name'_7.png' +smush -$smush_value_w \) \
+	    \( $tiles_dir/$clean_name'_8.png' $tiles_dir/$clean_name'_9.png' $tiles_dir/$clean_name'_10.png' $tiles_dir/$clean_name'_11.png' +smush -$smush_value_w \) \
+	    \( $tiles_dir/$clean_name'_12.png' $tiles_dir/$clean_name'_13.png' $tiles_dir/$clean_name'_14.png' $tiles_dir/$clean_name'_15.png' +smush -$smush_value_w \) \
 		-background none -smush -$smush_value_h  $output/$clean_name.large.png
 
 	# 8. Combine feathered and un-feathered output images to disguise feathering.
@@ -108,7 +116,7 @@ th ../neural_style.lua -seed 100 \
 -backend cudnn -cudnn_autotune \
 -style_scale 1 -init image -normalize_gradients \
 -image_size 256 -num_iterations 2500 -save_iter 50 \
--content_weight 100 -style_weight 1000 \
+-content_weight 200 -style_weight 1000 \
 -style_image $2 \
 -content_image $1 \
 -output_image out256.png \
@@ -121,7 +129,7 @@ th ../neural_style.lua -seed 100 \
 -backend cudnn -cudnn_autotune \
 -style_scale 1 -init image -normalize_gradients \
 -image_size 512 -num_iterations 500 -save_iter 50 \
--content_weight 100 -style_weight 1000 \
+-content_weight 200 -style_weight 1000 \
 -style_image $2 \
 -content_image $1 \
 -init_image out256.png \
@@ -150,16 +158,17 @@ neural_style_tiled(){
 
 th ../neural_style.lua -seed 100 \
 -backend cudnn -cudnn_autotune \
--style_scale 2 -init image -normalize_gradients \
+-style_scale 1 -init image -normalize_gradients \
 -image_size 512 -num_iterations 300 -save_iter 50 \
 -content_weight 100 -style_weight 1000 \
 -style_image $2 \
--content_image $1 \
+-content_image $4 \
+-init_image $1 \
 -output_image $3 \
 -model_file ../../models/VGG_ILSVRC_19_layers.caffemodel -proto_file ../../models/VGG_ILSVRC_19_layers_deploy.prototxt \
 -content_layers relu1_1,relu2_1,relu3_1,relu4_1,relu4_2,relu5_1 \
 -style_layers relu3_1,relu4_1,relu4_2,relu5_1 \
--tv_weight 0.000085 -original_colors 0 && rm output/content/tiles/*_*0.png
+-tv_weight 0.000085 -original_colors 0 && rm output/content/tiles/content_*_*0.png
  
 #####################################################################################
 	fi
